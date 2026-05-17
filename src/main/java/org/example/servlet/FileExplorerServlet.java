@@ -5,6 +5,9 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import org.example.model.User;
+import org.example.service.UserService;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -21,50 +24,78 @@ import java.util.List;
 @WebServlet("/")
 public class FileExplorerServlet extends HttpServlet {
 
-    private static final String ROOT_PATH = System.getProperty("user.home");
+    private UserService userService;
+
+    @Override
+    public void init() throws ServletException {
+        super.init();
+        userService = UserService.getInstance();
+    }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
+        HttpSession session = request.getSession(false);
+        User currentUser = (session != null) ? (User) session.getAttribute("user") : null;
+
+        // Проверяем авторизацию
+        if (currentUser == null) {
+            response.sendRedirect(request.getContextPath() + "/login.html");
+            return;
+        }
+
         String action = request.getParameter("action");
 
-        if ("download".equals(action)) {
-            handleDownload(request, response);
+        if ("logout".equals(action)) {
+            handleLogout(request, response);
+        } else if ("download".equals(action)) {
+            handleDownload(request, response, currentUser);
         } else {
-            showDirectory(request, response);
+            showDirectory(request, response, currentUser);
         }
     }
 
-    private void showDirectory(HttpServletRequest request, HttpServletResponse response)
+    private void handleLogout(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+        response.sendRedirect(request.getContextPath() + "/login.html");
+    }
+
+    private void showDirectory(HttpServletRequest request, HttpServletResponse response, User user)
             throws ServletException, IOException {
 
-        // Получаем путь из параметра или используем корневой
+        String userHomePath = userService.getUserHomePath(user.getLogin());
+
+        // Получаем путь из параметра или используем домашнюю папку пользователя
         String currentPath = request.getParameter("path");
         if (currentPath == null || currentPath.trim().isEmpty()) {
-            currentPath = ROOT_PATH;
+            currentPath = userHomePath;
         } else {
             currentPath = URLDecoder.decode(currentPath, "UTF-8");
         }
 
         File currentDir = new File(currentPath);
 
-        // Проверка безопасности - убеждаемся, что путь внутри разрешенной директории
+        // Проверка безопасности - убеждаемся, что путь внутри домашней папки пользователя
         try {
             String canonicalCurrentDir = currentDir.getCanonicalPath();
-            String canonicalRootPath = new File(ROOT_PATH).getCanonicalPath();
+            String canonicalUserHome = new File(userHomePath).getCanonicalPath();
 
-            // Если пытаются выйти за пределы ROOT_PATH
-            if (!canonicalCurrentDir.startsWith(canonicalRootPath)) {
-                currentDir = new File(ROOT_PATH);
+            // Если пытаются выйти за пределы домашней папки
+            if (!canonicalCurrentDir.startsWith(canonicalUserHome)) {
+                currentDir = new File(userHomePath);
             }
         } catch (IOException e) {
-            currentDir = new File(ROOT_PATH);
+            currentDir = new File(userHomePath);
         }
 
         // Проверяем существует ли директория
         if (!currentDir.exists() || !currentDir.isDirectory()) {
-            currentDir = new File(ROOT_PATH);
+            currentDir = new File(userHomePath);
         }
 
         // Получаем список файлов
@@ -97,13 +128,12 @@ public class FileExplorerServlet extends HttpServlet {
             });
         }
 
-
         String parentPath = currentDir.getParent();
         if (parentPath != null) {
             try {
                 String canonicalParent = new File(parentPath).getCanonicalPath();
-                String canonicalRoot = new File(ROOT_PATH).getCanonicalPath();
-                if (canonicalParent.startsWith(canonicalRoot)) {
+                String canonicalUserHome = new File(userHomePath).getCanonicalPath();
+                if (canonicalParent.startsWith(canonicalUserHome)) {
                     request.setAttribute("parentPath", parentPath);
                 } else {
                     request.setAttribute("parentPath", null);
@@ -119,12 +149,13 @@ public class FileExplorerServlet extends HttpServlet {
         request.setAttribute("currentPath", currentDir.getAbsolutePath());
         request.setAttribute("files", files);
         request.setAttribute("generatedTime", new Date());
+        request.setAttribute("username", user.getLogin());
 
         // Forward на JSP
         request.getRequestDispatcher("fileList.jsp").forward(request, response);
     }
 
-    private void handleDownload(HttpServletRequest request, HttpServletResponse response)
+    private void handleDownload(HttpServletRequest request, HttpServletResponse response, User user)
             throws IOException {
 
         String filePath = request.getParameter("file");
@@ -136,12 +167,14 @@ public class FileExplorerServlet extends HttpServlet {
         filePath = URLDecoder.decode(filePath, "UTF-8");
         File file = new File(filePath);
 
-        // Проверка безопасности - убеждаемся, что файл внутри разрешенной директории
+        String userHomePath = userService.getUserHomePath(user.getLogin());
+
+        // Проверка безопасности - убеждаемся, что файл внутри домашней папки пользователя
         try {
             String canonicalFilePath = file.getCanonicalPath();
-            String canonicalRootPath = new File(ROOT_PATH).getCanonicalPath();
+            String canonicalUserHome = new File(userHomePath).getCanonicalPath();
 
-            if (!canonicalFilePath.startsWith(canonicalRootPath)) {
+            if (!canonicalFilePath.startsWith(canonicalUserHome)) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
                 return;
             }
