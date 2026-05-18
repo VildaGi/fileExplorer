@@ -1,18 +1,19 @@
 package org.example.service;
 
+import org.example.db.DBService;
+import org.example.db.dataSets.UserDataSet;
+import org.example.db.executor.DBException;
 import org.example.model.User;
 
 import java.io.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class UserService {
-    private static final String USERS_FILE_PATH = System.getProperty("catalina.base") + File.separator + "users.ser";
-    private final ConcurrentHashMap<String, User> users = new ConcurrentHashMap<>();
-
+    private final DBService dbService;
     private static UserService instance;
 
     private UserService() {
-        loadUsers();
+        this.dbService = new DBService();
     }
 
     public static synchronized UserService getInstance() {
@@ -22,57 +23,62 @@ public class UserService {
         return instance;
     }
 
-    private void loadUsers() {
-        File file = new File(USERS_FILE_PATH);
-        if (file.exists()) {
-            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
-                ConcurrentHashMap<String, User> loadedUsers = (ConcurrentHashMap<String, User>) ois.readObject();
-                users.putAll(loadedUsers);
-                System.out.println("Loaded " + users.size() + " users from disk");
-            } catch (IOException | ClassNotFoundException e) {
-                System.err.println("Error loading users: " + e.getMessage());
-                e.printStackTrace();
+    public boolean register(String login, String password, String email) {
+        try {
+            // Проверяем, существует ли пользователь
+            if (dbService.userExists(login)) {
+                System.err.println("User already exists: " + login);
+                return false;
             }
-        } else {
-            System.out.println("No existing users file found, starting with empty user list");
-        }
-    }
 
-    private void saveUsers() {
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(USERS_FILE_PATH))) {
-            oos.writeObject(users);
-            System.out.println("Saved " + users.size() + " users to disk");
-        } catch (IOException e) {
-            System.err.println("Error saving users: " + e.getMessage());
+            // Добавляем пользователя
+            long userId = dbService.addUser(login, password, email);
+
+            if (userId > 0) {
+                System.out.println("User registered successfully: " + login + " with ID: " + userId);
+                createUserHomeDirectory(login);
+                return true;
+            }
+        } catch (DBException e) {
+            System.err.println("Error registering user: " + e.getMessage());
             e.printStackTrace();
         }
-    }
-
-    public boolean register(String login, String password, String email) {
-        if (users.containsKey(login)) {
-            return false;
-        }
-
-        User user = new User(login, password, email);
-        users.put(login, user);
-        saveUsers();
-
-        // Создаем домашнюю папку пользователя
-        createUserHomeDirectory(login);
-
-        return true;
+        return false;
     }
 
     public User login(String login, String password) {
-        User user = users.get(login);
-        if (user != null && user.getPassword().equals(password)) {
-            return user;
+        try {
+            UserDataSet userDataSet = dbService.getUserByLoginAndPassword(login, password);
+
+            if (userDataSet != null) {
+                System.out.println("User logged in successfully: " + login);
+
+                // Конвертируем в модель User
+                return new User(
+                        userDataSet.getLogin(),
+                        userDataSet.getPassword(),
+                        userDataSet.getEmail()
+                );
+            }
+        } catch (DBException e) {
+            System.err.println("Error during login: " + e.getMessage());
+            e.printStackTrace();
         }
         return null;
     }
 
+    public boolean userExists(String login) {
+        try {
+            return dbService.userExists(login);
+        } catch (DBException e) {
+            System.err.println("Error checking user existence: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     private void createUserHomeDirectory(String login) {
-        String homeDirPath = "D:\\filemanager\\" + login;
+        String homeDirPath = getUserHomePath(login);
         File homeDir = new File(homeDirPath);
         if (!homeDir.exists()) {
             boolean created = homeDir.mkdirs();
