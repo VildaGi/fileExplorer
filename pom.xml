@@ -30,7 +30,7 @@
     </dependencies>
 
     <build>
-        <finalName>fileExplorer</finalName>
+        <finalName>fileExplorerWithJDBC</finalName>
     </build>
     <packaging>war</packaging>
 
