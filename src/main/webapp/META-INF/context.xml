@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Context>
+    <!-- Настройка PersistentManager для сохранения сессий на диск -->
+    <Manager className="org.apache.catalina.session.PersistentManager"
+             saveOnRestart="true"
+             maxActiveSessions="100"
+             minIdleSwap="60"
+             maxIdleSwap="120"
+             maxIdleBackup="30">
+
+        <!-- Используем FileStore для хранения сессий -->
+        <Store className="org.apache.catalina.session.FileStore"
+               directory="${catalina.base}/sessions"/>
+    </Manager>
+</Context>
