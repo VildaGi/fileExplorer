@@ -86,13 +86,12 @@ public class DBService {
         try {
             String url = "jdbc:postgresql://localhost:5432/filemanager";
             String username = "postgres";
-            String password = "your_password";
+            String password = "postgres";
 
-            // Регистрируем драйвер
+
             DriverManager.registerDriver((Driver) Class.forName("org.postgresql.Driver").newInstance());
 
             Connection connection = DriverManager.getConnection(url, username, password);
-            System.out.println("Connected to PostgreSQL database");
             return connection;
         } catch (SQLException | InstantiationException | IllegalAccessException | ClassNotFoundException e) {
             e.printStackTrace();
