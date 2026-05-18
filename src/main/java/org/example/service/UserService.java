@@ -85,6 +85,6 @@ public class UserService {
     }
 
     public String getUserHomePath(String login) {
-        return "C:\\Users\\Student\\filemanager\\" + login;
+        return "D:\\filemanager\\" + login;
     }
 }
