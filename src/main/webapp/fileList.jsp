@@ -17,6 +17,12 @@
             <span>📁</span>
             File Explorer
         </h1>
+        <div class="user-info">
+            <span class="username">USER: <%= request.getAttribute("username") %></span>
+            <a href="<%= request.getContextPath() %>/?action=logout" class="logout-button" onclick="return confirm('Are you sure you want to logout?')">
+                🚪 Logout
+            </a>
+        </div>
     </div>
 
     <div class="timestamp">
