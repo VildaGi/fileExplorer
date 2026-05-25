@@ -1,70 +1,41 @@
 package org.example.servlet;
 
+import org.example.service.UserService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.example.service.UserService;
 
 import java.io.IOException;
 
 @WebServlet("/register")
 public class RegisterServlet extends HttpServlet {
-
-    private UserService userService;
+    private final UserService userService = new UserService();
 
     @Override
-    public void init() throws ServletException {
-        super.init();
-        userService = UserService.getInstance();
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+
+        req.getRequestDispatcher("/WEB-INF/jsp/register.jsp")
+                .forward(req, resp);
     }
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-        response.sendRedirect(request.getContextPath() + "/register.html");
-    }
-
-    @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-
-        String login = request.getParameter("login");
-        String password = request.getParameter("password");
-        String email = request.getParameter("email");
-
-        if (login == null || login.trim().isEmpty()) {
-            response.setContentType("text/html");
-            response.getWriter().println("<html><body><h3>Error: Login is required</h3>");
-            response.getWriter().println("<a href='register.html'>Back to Registration</a></body></html>");
-            return;
-        }
-
-        if (password == null || password.trim().isEmpty()) {
-            response.setContentType("text/html");
-            response.getWriter().println("<html><body><h3>Error: Password is required</h3>");
-            response.getWriter().println("<a href='register.html'>Back to Registration</a></body></html>");
-            return;
-        }
-
-        if (email == null || email.trim().isEmpty()) {
-            response.setContentType("text/html");
-            response.getWriter().println("<html><body><h3>Error: Email is required</h3>");
-            response.getWriter().println("<a href='register.html'>Back to Registration</a></body></html>");
-            return;
-        }
+        String login = req.getParameter("login");
+        String password = req.getParameter("password");
+        String email = req.getParameter("email");
 
         boolean success = userService.register(login, password, email);
 
-        if (success) {
-            response.setContentType("text/html");
-            response.getWriter().println("<html><body><h3>Registration successful!</h3>");
-            response.getWriter().println("<a href='login.html'>Go to Login</a></body></html>");
-        } else {
-            response.setContentType("text/html");
-            response.getWriter().println("<html><body><h3>Error: Username already exists</h3>");
-            response.getWriter().println("<a href='register.html'>Back to Registration</a></body></html>");
+        if (!success) {
+            req.setAttribute("error", "User already exists");
+            req.getRequestDispatcher("/WEB-INF/jsp/register.jsp").forward(req, resp);
+            return;
         }
+
+        resp.sendRedirect("login");
     }
 }
