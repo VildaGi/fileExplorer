@@ -22,7 +22,6 @@ import java.util.List;
 
 @WebServlet("/files")
 public class FileServlet extends HttpServlet {
-    //    private static final String BASE_DIR ="/home/alex/files"; // Linux
     private static final String BASE_DIR = "C:/files"; // Windows
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
